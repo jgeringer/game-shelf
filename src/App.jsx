@@ -7,6 +7,7 @@ import './App.css'
 export default function App() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [isTvOn, setIsTvOn] = useState(false)
 
   const handleSelect = useCallback((id) => {
     setSelectedGame(id)
@@ -22,6 +23,14 @@ export default function App() {
     setIsOpen(o => !o)
   }, [])
 
+  const handleToggleTv = useCallback(() => {
+    setIsTvOn(on => !on)
+  }, [])
+
+  const handlePlayCartridge = useCallback(() => {
+    setIsTvOn(true)
+  }, [])
+
   return (
     <div className="app">
       <Canvas
@@ -35,12 +44,25 @@ export default function App() {
             selectedGame={selectedGame}
             onSelect={handleSelect}
             isOpen={isOpen}
+            isTvOn={isTvOn}
+            onToggleTv={handleToggleTv}
+            onPlayCartridge={handlePlayCartridge}
           />
         </Suspense>
       </Canvas>
 
       <div className="ui-overlay">
-        <h1 className="shelf-title">🎮 Retro Game Shelf</h1>
+        <div className="header-bar">
+          <h1 className="shelf-title">🎮 Retro Game Shelf</h1>
+          <button
+            className={`tv-status-badge ${isTvOn ? 'tv-on' : 'tv-off'}`}
+            onClick={handleToggleTv}
+            title="Click to toggle Sony PVM TV"
+          >
+            <span className="tv-dot"></span>
+            SONY PVM-14M4E: {isTvOn ? 'ON' : 'OFF'}
+          </button>
+        </div>
 
         {selectedGame && (
           <div className="game-controls">
@@ -50,12 +72,18 @@ export default function App() {
             <button className="btn btn-secondary" onClick={handleDeselect}>
               ← Back to Shelf
             </button>
-            <p className="hint">Drag to rotate</p>
+            {isOpen ? (
+              <p className="hint hint-active">✨ Click cartridge to play on TV</p>
+            ) : (
+              <p className="hint">Drag to rotate</p>
+            )}
           </div>
         )}
 
         {!selectedGame && (
-          <p className="hint no-shelf-hint">Click a game to pick it up</p>
+          <p className="hint no-shelf-hint">
+            Click a game to pick up • Click Sony PVM to toggle TV
+          </p>
         )}
       </div>
     </div>

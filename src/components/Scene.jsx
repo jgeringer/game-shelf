@@ -1,4 +1,5 @@
 import GameBox from './GameBox'
+import SonyPVM from './SonyPVM'
 
 const GAMES = [
   {
@@ -13,7 +14,14 @@ const GAMES = [
   }
 ]
 
-export default function Scene({ selectedGame, onSelect, isOpen }) {
+export default function Scene({
+  selectedGame,
+  onSelect,
+  isOpen,
+  isTvOn,
+  onToggleTv,
+  onPlayCartridge,
+}) {
   return (
     <>
       {/* Background color */}
@@ -43,6 +51,15 @@ export default function Scene({ selectedGame, onSelect, isOpen }) {
       {/* Shelf unit */}
       <ShelfUnit />
 
+      {/* 3D Sony PVM-14M4E Retro CRT Monitor (angled to show depth and side vents) */}
+      <SonyPVM
+        position={[0.18, 2.05, -0.20]}
+        rotation={[0.02, -0.28, 0]}
+        isOn={isTvOn}
+        onTogglePower={onToggleTv}
+        screenTextureUrl="/textures/aladdin-title.png"
+      />
+
       {/* Game boxes */}
       {GAMES.map(game => (
         <GameBox
@@ -56,6 +73,7 @@ export default function Scene({ selectedGame, onSelect, isOpen }) {
           isSelected={selectedGame === game.id}
           onSelect={() => onSelect(game.id)}
           isOpen={selectedGame === game.id && isOpen}
+          onPlayCartridge={onPlayCartridge}
         />
       ))}
     </>
@@ -65,33 +83,51 @@ export default function Scene({ selectedGame, onSelect, isOpen }) {
 function ShelfUnit() {
   return (
     <group position={[0, -1.65, -0.25]}>
-      {/* Main plank */}
+      {/* Main lower plank (Game Shelf) */}
       <mesh receiveShadow castShadow>
         <boxGeometry args={[5.8, 0.22, 1.3]} />
         <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
       </mesh>
 
-      {/* Plank front edge highlight */}
+      {/* Lower plank front edge highlight */}
       <mesh position={[0, 0.11, 0.65]}>
         <boxGeometry args={[5.8, 0.04, 0.04]} />
         <meshStandardMaterial color="#7a4a28" roughness={0.7} />
       </mesh>
 
+      {/* Upper monitor shelf plank (supports Sony PVM) */}
+      <mesh position={[0, 2.37, 0]} receiveShadow castShadow>
+        <boxGeometry args={[5.8, 0.18, 1.55]} />
+        <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
+      </mesh>
+
+      {/* Upper shelf front edge highlight */}
+      <mesh position={[0, 2.46, 0.775]}>
+        <boxGeometry args={[5.8, 0.04, 0.04]} />
+        <meshStandardMaterial color="#7a4a28" roughness={0.7} />
+      </mesh>
+
+      {/* Top crown plank */}
+      <mesh position={[0, 5.05, 0]} receiveShadow castShadow>
+        <boxGeometry args={[5.8, 0.16, 1.55]} />
+        <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
+      </mesh>
+
       {/* Back panel / wall */}
-      <mesh position={[0, 1.1, -0.61]} receiveShadow>
-        <boxGeometry args={[5.8, 2.4, 0.08]} />
+      <mesh position={[0, 2.45, -0.61]} receiveShadow>
+        <boxGeometry args={[5.8, 5.1, 0.08]} />
         <meshStandardMaterial color="#2a1a0a" roughness={0.95} />
       </mesh>
 
       {/* Left side panel */}
-      <mesh position={[-2.88, 0.8, 0]} receiveShadow>
-        <boxGeometry args={[0.07, 1.85, 1.3]} />
+      <mesh position={[-2.88, 2.45, 0]} receiveShadow>
+        <boxGeometry args={[0.07, 5.1, 1.35]} />
         <meshStandardMaterial color="#4a2c10" roughness={0.85} />
       </mesh>
 
       {/* Right side panel */}
-      <mesh position={[2.88, 0.8, 0]} receiveShadow>
-        <boxGeometry args={[0.07, 1.85, 1.3]} />
+      <mesh position={[2.88, 2.45, 0]} receiveShadow>
+        <boxGeometry args={[0.07, 5.1, 1.35]} />
         <meshStandardMaterial color="#4a2c10" roughness={0.85} />
       </mesh>
 

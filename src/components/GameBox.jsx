@@ -24,7 +24,7 @@ const CD = 15 * CART_SCALE
 // ─────────────────────────────────────────────
 //  Cartridge mesh
 // ─────────────────────────────────────────────
-function Cartridge({ tex }) {
+function Cartridge({ tex, onClick, onPointerEnter, onPointerLeave }) {
   const bodyGeometry = useMemo(() => {
     const w = CW
     const h = CH
@@ -50,10 +50,18 @@ function Cartridge({ tex }) {
   }, [])
 
   return (
-    <group>
+    <group
+      onClick={onClick}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+    >
       {/* Main body */}
       <mesh castShadow position={[0, 0, -CD / 2]} geometry={bodyGeometry}>
-        <meshStandardMaterial color="#111111" roughness={0.55} metalness={0.12} />
+        <meshStandardMaterial
+          color="#111111"
+          roughness={0.55}
+          metalness={0.12}
+        />
       </mesh>
 
       {/* Rounded top and bottom ribs to match Genesis cart profile */}
@@ -84,6 +92,14 @@ function Cartridge({ tex }) {
         <boxGeometry args={[CW * 0.52, CH * 0.20, CD * 0.42]} />
         <meshStandardMaterial color="#080808" roughness={0.9} metalness={0.25} />
       </mesh>
+
+      {/* Front dedicated click target plane */}
+      {onClick && (
+        <mesh position={[0, 0, CD / 2 + 0.012]} onClick={onClick}>
+          <planeGeometry args={[CW * 1.1, CH * 1.1]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+        </mesh>
+      )}
     </group>
   )
 }
@@ -91,24 +107,53 @@ function Cartridge({ tex }) {
 // ─────────────────────────────────────────────
 //  Inner box geometry (static faces + lid + cartridge)
 // ─────────────────────────────────────────────
-function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, manualPreviewUrl }) {
+function BoxMesh({
+  gameId,
+  isOpen,
+  isSelected,
+  onSelect,
+  coverUrl,
+  cartUrl,
+  manualUrl,
+  manualPreviewUrl,
+  onPlayCartridge,
+}) {
   const lidRef  = useRef()
   const cartRef = useRef()
+  const manualRef = useRef()
   const animRef = useRef({
     lid: 0,
     cartX: 0,
     cartY: -0.08,
     cartZ: 0,
+    cartRotX: 0,
     cartRotZ: -Math.PI / 2,
     cartScale: 1,
+    manualY: 0,
+    manualZ: 0,
+    manualRotX: 0,
+    manualScale: 1,
   })
   const [hovered, setHovered] = useState(false)
+  const [cartHovered, setCartHovered] = useState(false)
   const [manualHovered, setManualHovered] = useState(false)
 
   // Load & split textures
   const coverTex = useTexture(coverUrl)
-  const cartTex  = useTexture(cartUrl)
-  const manualTex = useTexture(manualPreviewUrl)
+  const cartTex = useTexture(cartUrl, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace
+    t.wrapS = THREE.ClampToEdgeWrapping
+    t.wrapT = THREE.ClampToEdgeWrapping
+    t.minFilter = THREE.LinearFilter
+    t.magFilter = THREE.LinearFilter
+  })
+  const manualTex = useTexture(manualPreviewUrl, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace
+    t.wrapS = THREE.ClampToEdgeWrapping
+    t.wrapT = THREE.ClampToEdgeWrapping
+    t.minFilter = THREE.LinearFilter
+    t.magFilter = THREE.LinearFilter
+  })
 
   const { frontTex, backTex, spineTex } = useMemo(() => {
     const make = ({ ox, rx }) => {
@@ -127,24 +172,6 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
     }
   }, [coverTex])
 
-  useEffect(() => {
-    manualTex.colorSpace = THREE.SRGBColorSpace
-    manualTex.wrapS = THREE.ClampToEdgeWrapping
-    manualTex.wrapT = THREE.ClampToEdgeWrapping
-    manualTex.minFilter = THREE.LinearFilter
-    manualTex.magFilter = THREE.LinearFilter
-    manualTex.needsUpdate = true
-  }, [manualTex])
-
-  useEffect(() => {
-    cartTex.colorSpace = THREE.SRGBColorSpace
-    cartTex.wrapS = THREE.ClampToEdgeWrapping
-    cartTex.wrapT = THREE.ClampToEdgeWrapping
-    cartTex.minFilter = THREE.LinearFilter
-    cartTex.magFilter = THREE.LinearFilter
-    cartTex.needsUpdate = true
-  }, [cartTex])
-
   const handleManualClick = (e) => {
     e.stopPropagation()
     window.open(manualUrl, '_blank', 'noopener,noreferrer')
@@ -161,25 +188,44 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
       lidRef.current.rotation.y = a.lid
     }
 
-    // Keep cartridge fixed in place; opening the box should not move it.
+    // Cartridge slide-out animation on hover when open
     if (cartRef.current) {
+      const isHovering = isOpen && cartHovered
       const targetX = 0
-      const targetY = -0.08
-      const targetZ = 0
+      const targetY = isHovering ? -0.03 : -0.08
+      const targetZ = isHovering ? 0.32 : 0.0
+      const targetRotX = isHovering ? 0.08 : 0.0
       const targetRotZ = -Math.PI / 2
-      const targetScale = 1
+      const targetScale = isHovering ? 1.04 : 1.0
 
-      a.cartX += (targetX - a.cartX) * dt * 4
-      a.cartY += (targetY - a.cartY) * dt * 4
-      a.cartZ += (targetZ - a.cartZ) * dt * 4
-      a.cartRotZ += (targetRotZ - a.cartRotZ) * dt * 4
-      a.cartScale += (targetScale - a.cartScale) * dt * 4
+      a.cartX += (targetX - a.cartX) * dt * 9
+      a.cartY += (targetY - a.cartY) * dt * 9
+      a.cartZ += (targetZ - a.cartZ) * dt * 9
+      a.cartRotX += (targetRotX - a.cartRotX) * dt * 9
+      a.cartRotZ += (targetRotZ - a.cartRotZ) * dt * 9
+      a.cartScale += (targetScale - a.cartScale) * dt * 9
 
-      cartRef.current.position.x = a.cartX
-      cartRef.current.position.y = a.cartY
-      cartRef.current.position.z = a.cartZ
-      cartRef.current.rotation.z = a.cartRotZ
+      cartRef.current.position.set(a.cartX, a.cartY, a.cartZ)
+      cartRef.current.rotation.set(a.cartRotX, 0, a.cartRotZ)
       cartRef.current.scale.setScalar(a.cartScale)
+    }
+
+    // Manual slide-out animation on hover when open
+    if (manualRef.current) {
+      const isManHover = isOpen && manualHovered
+      const targetMY = isManHover ? 0.03 : 0.0
+      const targetMZ = isManHover ? 0.22 : 0.0
+      const targetMRotX = isManHover ? 0.05 : 0.0
+      const targetMScale = isManHover ? 1.04 : 1.0
+
+      a.manualY += (targetMY - a.manualY) * dt * 9
+      a.manualZ += (targetMZ - a.manualZ) * dt * 9
+      a.manualRotX += (targetMRotX - a.manualRotX) * dt * 9
+      a.manualScale += (targetMScale - a.manualScale) * dt * 9
+
+      manualRef.current.position.set(0, a.manualY, a.manualZ)
+      manualRef.current.rotation.set(a.manualRotX, 0, 0)
+      manualRef.current.scale.setScalar(a.manualScale)
     }
   })
 
@@ -258,7 +304,24 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
 
       {/* ── Cartridge sitting inside ── */}
       <group ref={cartRef} position={[0, -0.08, 0]}>
-        <Cartridge tex={cartTex} />
+        <Cartridge
+          tex={cartTex}
+          isHovered={cartHovered}
+          onClick={isOpen ? (e) => {
+            e.stopPropagation()
+            onPlayCartridge?.(gameId || 'aladdin')
+          } : undefined}
+          onPointerEnter={isOpen ? (e) => {
+            e.stopPropagation()
+            setCartHovered(true)
+            document.body.style.cursor = 'pointer'
+          } : undefined}
+          onPointerLeave={isOpen ? (e) => {
+            e.stopPropagation()
+            setCartHovered(false)
+            document.body.style.cursor = hovered ? 'pointer' : 'auto'
+          } : undefined}
+        />
       </group>
 
       {/* Cartridge retaining clips (right panel) */}
@@ -347,23 +410,26 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
                 document.body.style.cursor = hovered ? 'pointer' : 'auto'
               }}
             >
-              {/* Manual cover image from page 1 of the PDF. */}
-              <mesh position={[0, 0, 0.022]} renderOrder={10} onClick={handleManualClick}>
-                <planeGeometry args={[0.88, 1.66]} />
-                <meshBasicMaterial
-                  map={manualTex}
-                  toneMapped={false}
-                  side={THREE.FrontSide}
-                />
-              </mesh>
+              {/* Animated Manual Booklet */}
+              <group ref={manualRef}>
+                {/* Manual cover image from page 1 of the PDF. */}
+                <mesh position={[0, 0, 0.022]} renderOrder={10} onClick={handleManualClick}>
+                  <planeGeometry args={[0.88, 1.66]} />
+                  <meshBasicMaterial
+                    map={manualTex}
+                    toneMapped={false}
+                    side={THREE.FrontSide}
+                  />
+                </mesh>
 
-              {/* Larger click target to make opening the PDF easier. */}
-              <mesh position={[0, 0, 0.024]} onClick={handleManualClick}>
-                <planeGeometry args={[0.96, 1.78]} />
-                <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
-              </mesh>
+                {/* Larger click target to make opening the PDF easier. */}
+                <mesh position={[0, 0, 0.024]} onClick={handleManualClick}>
+                  <planeGeometry args={[0.96, 1.78]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+                </mesh>
+              </group>
 
-              {/* Manual retaining clips */}
+              {/* Manual retaining clips (remain fixed on inside lid) */}
               <mesh position={[-0.42, 0.66, 0.014]}>
                 <boxGeometry args={[0.07, 0.05, 0.03]} />
                 <meshStandardMaterial color="#141414" roughness={0.9} />
@@ -380,13 +446,6 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
                 <boxGeometry args={[0.07, 0.05, 0.03]} />
                 <meshStandardMaterial color="#141414" roughness={0.9} />
               </mesh>
-
-              {manualHovered && (
-                <mesh position={[0, 0, 0.024]}>
-                  <planeGeometry args={[1.00, 1.82]} />
-                  <meshBasicMaterial color="#fff0a8" transparent opacity={0.2} depthWrite={false} />
-                </mesh>
-              )}
             </group>
           )}
         </group>
@@ -412,7 +471,18 @@ function BoxMesh({ isOpen, isSelected, onSelect, coverUrl, cartUrl, manualUrl, m
 //  GameBox  – wraps BoxMesh with position
 //  animation and PresentationControls
 // ─────────────────────────────────────────────
-export default function GameBox({ position, isSelected, onSelect, isOpen, coverUrl, cartUrl, manualUrl, manualPreviewUrl }) {
+export default function GameBox({
+  gameId,
+  position,
+  isSelected,
+  onSelect,
+  isOpen,
+  coverUrl,
+  cartUrl,
+  manualUrl,
+  manualPreviewUrl,
+  onPlayCartridge,
+}) {
   const outerRef  = useRef()
   const [controlsKey, setControlsKey] = useState(0)
   const poseRef = useRef()
@@ -504,6 +574,7 @@ export default function GameBox({ position, isSelected, onSelect, isOpen, coverU
       >
         <group ref={poseRef}>
           <BoxMesh
+            gameId={gameId}
             isOpen={isOpen}
             isSelected={isSelected}
             onSelect={onSelect}
@@ -511,6 +582,7 @@ export default function GameBox({ position, isSelected, onSelect, isOpen, coverU
             cartUrl={cartUrl}
             manualUrl={manualUrl}
             manualPreviewUrl={manualPreviewUrl}
+            onPlayCartridge={onPlayCartridge}
           />
         </group>
       </PresentationControls>
