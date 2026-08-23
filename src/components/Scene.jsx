@@ -1,18 +1,114 @@
+import { useMemo } from 'react'
+import * as THREE from 'three'
 import GameBox from './GameBox'
 import SonyPVM from './SonyPVM'
 
 const GAMES = [
   {
     id: 'aladdin',
-    // Shelf position: x=0, y = shelf_top + half_box_height
-    // Shelf plank top at y=-1.65+0.12=−1.53; box center at -1.53+1.0=-0.53
-    position: [0, -0.53, 0.1],
+    // Bottom-right bay, aligned to inner right wall:
+    // Right wall inner edge world x ≈ 3.43 (TOTAL_W/2 - THICK - BD/2)
+    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
+    position: [3.35, -0.53, 0.0],
     coverUrl: '/textures/aladdin-cover.jpg',
     cartUrl: '/textures/aladdin-cart.png',
     manualUrl: '/manuals/Aladdin_MD_US_manual.pdf',
     manualPreviewUrl: '/manuals/aladdin-manual-page1.png',
   }
 ]
+
+// ─────────────────────────────────────────────────────────
+// Procedural Light Blonde Oak Wood Textures
+// ─────────────────────────────────────────────────────────
+
+function createLightOakTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
+
+  // Base blonde oak tone (matching IKEA / modern ash oak in reference photo)
+  ctx.fillStyle = '#cfc2ad'
+  ctx.fillRect(0, 0, 512, 512)
+
+  // Vertical wood grain streaks
+  for (let x = 0; x < 512; x += 1) {
+    const wave = Math.sin(x * 0.08) * 8 + Math.sin(x * 0.35) * 4 + (Math.random() - 0.5) * 4
+    const brightness = 0.93 + (Math.sin(x * 0.04 + wave * 0.08) * 0.07) + (Math.random() - 0.5) * 0.04
+    const r = Math.floor(207 * brightness)
+    const g = Math.floor(194 * brightness)
+    const b = Math.floor(173 * brightness)
+    ctx.fillStyle = `rgb(${r},${g},${b})`
+    ctx.fillRect(x, 0, 1, 512)
+  }
+
+  // Wood pores and grain lines
+  ctx.fillStyle = 'rgba(150, 136, 118, 0.16)'
+  for (let i = 0; i < 600; i++) {
+    const x = Math.random() * 512
+    const y = Math.random() * 512
+    const len = 12 + Math.random() * 40
+    ctx.fillRect(x, y, 1.2, len)
+  }
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(2, 2)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+function createPegHoleTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 512
+  const ctx = canvas.getContext('2d')
+
+  // Base oak color
+  ctx.fillStyle = '#cfc2ad'
+  ctx.fillRect(0, 0, 128, 512)
+
+  // Vertical grain
+  for (let x = 0; x < 128; x += 1) {
+    const brightness = 0.95 + (Math.random() - 0.5) * 0.08
+    const r = Math.floor(207 * brightness)
+    const g = Math.floor(194 * brightness)
+    const b = Math.floor(173 * brightness)
+    ctx.fillStyle = `rgb(${r},${g},${b})`
+    ctx.fillRect(x, 0, 1, 512)
+  }
+
+  // Dual columns of shelf pin adjustment holes
+  const drawHoles = (cx) => {
+    for (let y = 32; y < 512; y += 32) {
+      // Dark inset hole
+      ctx.fillStyle = '#5c5244'
+      ctx.beginPath()
+      ctx.arc(cx, y, 3.2, 0, Math.PI * 2)
+      ctx.fill()
+      // Highlight bottom rim
+      ctx.fillStyle = '#f0e6d6'
+      ctx.beginPath()
+      ctx.arc(cx, y + 1.2, 3.2, 0, Math.PI)
+      ctx.stroke()
+    }
+  }
+
+  drawHoles(38)
+  drawHoles(90)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+  tex.repeat.set(1, 2)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+// ─────────────────────────────────────────────────────────
+// Main Scene Component
+// ─────────────────────────────────────────────────────────
 
 export default function Scene({
   selectedGame,
@@ -25,15 +121,15 @@ export default function Scene({
   return (
     <>
       {/* Background color */}
-      <color attach="background" args={['#0a0a14']} />
-      <fog attach="fog" args={['#0a0a14', 14, 26]} />
+      <color attach="background" args={['#0e0e16']} />
+      <fog attach="fog" args={['#0e0e16', 15, 28]} />
 
-      {/* Lighting */}
-      <ambientLight intensity={0.55} color="#ffd8a0" />
+      {/* Lighting for light blonde oak wood */}
+      <ambientLight intensity={0.70} color="#fffcf5" />
       <directionalLight
-        position={[4, 7, 6]}
-        intensity={1.8}
-        color="#fff5e0"
+        position={[4, 8, 7]}
+        intensity={1.6}
+        color="#fffbf2"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
@@ -44,23 +140,23 @@ export default function Scene({
         shadow-camera-bottom={-6}
       />
       {/* Subtle fill from the left */}
-      <pointLight position={[-5, 3, 4]} intensity={0.6} color="#5080ff" />
+      <pointLight position={[-5, 3, 5]} intensity={0.45} color="#d8e8ff" />
       {/* Warm accent from below */}
-      <pointLight position={[0, -2, 4]} intensity={0.3} color="#ff6020" />
+      <pointLight position={[0, -2, 4]} intensity={0.25} color="#fff0d0" />
 
-      {/* Shelf unit */}
+      {/* 2-Bay Blonde Oak Bookcase Unit */}
       <ShelfUnit />
 
-      {/* 3D Sony PVM-14M4E Retro CRT Monitor (angled to show depth and side vents) */}
+      {/* 3D Sony PVM-14M4E Monitor (sitting on lower shelf in left bay, angled like in photo) */}
       <SonyPVM
-        position={[0.18, 2.05, -0.20]}
-        rotation={[0.02, -0.28, 0]}
+        position={[-1.75, -0.25, 0.0]}
+        rotation={[0.02, -0.22, 0]}
         isOn={isTvOn}
         onTogglePower={onToggleTv}
         screenTextureUrl="/textures/aladdin-title.png"
       />
 
-      {/* Game boxes */}
+      {/* Game boxes (stored spine-out next to TV on lower shelf) */}
       {GAMES.map(game => (
         <GameBox
           key={game.id}
@@ -80,61 +176,120 @@ export default function Scene({
   )
 }
 
+// ─────────────────────────────────────────────────────────
+// Scandinavian Light Oak 2-Bay Bookcase
+// ─────────────────────────────────────────────────────────
+
 function ShelfUnit() {
+  const oakTex = useMemo(() => createLightOakTexture(), [])
+  const pegTex = useMemo(() => createPegHoleTexture(), [])
+
+  const oakMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    map: oakTex,
+    color: '#d4c7b4',
+    roughness: 0.78,
+    metalness: 0.02,
+  }), [oakTex])
+
+  const pegWallMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    map: pegTex,
+    color: '#d4c7b4',
+    roughness: 0.80,
+    metalness: 0.02,
+  }), [pegTex])
+
+  const TOTAL_W = 7.4   // Width of 2-bay bookcase
+  const TOTAL_H = 5.2   // Height
+  const DEPTH = 1.6     // Depth
+  const THICK = 0.12    // Panel thickness
+
   return (
-    <group position={[0, -1.65, -0.25]}>
-      {/* Main lower plank (Game Shelf) */}
-      <mesh receiveShadow castShadow>
-        <boxGeometry args={[5.8, 0.22, 1.3]} />
-        <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
+    <group position={[0, 0.95, -0.15]}>
+      {/* ── Back Panel (Light blonde oak backing) ── */}
+      <mesh position={[0, 0, -DEPTH / 2 + 0.04]} receiveShadow>
+        <boxGeometry args={[TOTAL_W, TOTAL_H, 0.06]} />
+        <primitive object={oakMaterial} attach="material" />
       </mesh>
 
-      {/* Lower plank front edge highlight */}
-      <mesh position={[0, 0.11, 0.65]}>
-        <boxGeometry args={[5.8, 0.04, 0.04]} />
-        <meshStandardMaterial color="#7a4a28" roughness={0.7} />
+      {/* ── Outer Left Upright Wall ── */}
+      <mesh position={[-TOTAL_W / 2 + THICK / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[THICK, TOTAL_H, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
+      </mesh>
+      {/* Left Wall Inner Peg-hole Overlay */}
+      <mesh
+        position={[-TOTAL_W / 2 + THICK + 0.001, 0, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
+        <primitive object={pegWallMaterial} attach="material" />
       </mesh>
 
-      {/* Upper monitor shelf plank (supports Sony PVM) */}
-      <mesh position={[0, 2.37, 0]} receiveShadow castShadow>
-        <boxGeometry args={[5.8, 0.18, 1.55]} />
-        <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
+      {/* ── Outer Right Upright Wall ── */}
+      <mesh position={[TOTAL_W / 2 - THICK / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[THICK, TOTAL_H, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
+      </mesh>
+      {/* Right Wall Inner Peg-hole Overlay */}
+      <mesh
+        position={[TOTAL_W / 2 - THICK - 0.001, 0, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
+        <primitive object={pegWallMaterial} attach="material" />
       </mesh>
 
-      {/* Upper shelf front edge highlight */}
-      <mesh position={[0, 2.46, 0.775]}>
-        <boxGeometry args={[5.8, 0.04, 0.04]} />
-        <meshStandardMaterial color="#7a4a28" roughness={0.7} />
+      {/* ── Central Vertical Divider (separates Left & Right bays) ── */}
+      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[THICK, TOTAL_H, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
+      </mesh>
+      {/* Center Divider Left Peg-holes */}
+      <mesh
+        position={[-THICK / 2 - 0.001, 0, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
+        <primitive object={pegWallMaterial} attach="material" />
+      </mesh>
+      {/* Center Divider Right Peg-holes */}
+      <mesh
+        position={[THICK / 2 + 0.001, 0, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
+        <primitive object={pegWallMaterial} attach="material" />
       </mesh>
 
-      {/* Top crown plank */}
-      <mesh position={[0, 5.05, 0]} receiveShadow castShadow>
-        <boxGeometry args={[5.8, 0.16, 1.55]} />
-        <meshStandardMaterial color="#5a3418" roughness={0.82} metalness={0.0} />
+      {/* ── Top Crown Shelf Plank ── */}
+      <mesh position={[0, TOTAL_H / 2 - THICK / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[TOTAL_W, THICK, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
       </mesh>
 
-      {/* Back panel / wall */}
-      <mesh position={[0, 2.45, -0.61]} receiveShadow>
-        <boxGeometry args={[5.8, 5.1, 0.08]} />
-        <meshStandardMaterial color="#2a1a0a" roughness={0.95} />
+      {/* ── Bottom Base Shelf Plank (Floor Level) ── */}
+      <mesh position={[0, -TOTAL_H / 2 + THICK / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[TOTAL_W, THICK, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
       </mesh>
 
-      {/* Left side panel */}
-      <mesh position={[-2.88, 2.45, 0]} receiveShadow>
-        <boxGeometry args={[0.07, 5.1, 1.35]} />
-        <meshStandardMaterial color="#4a2c10" roughness={0.85} />
+      {/* ── Lower Main Shelf (supports TV and Genesis Games) ── */}
+      {/* Y = -2.60 + 0.12 = -2.48 relative to unit center (world Y ≈ -1.53) */}
+      <mesh position={[0, -TOTAL_H / 2 + 0.06, 0]} castShadow receiveShadow>
+        <boxGeometry args={[TOTAL_W - 0.04, THICK, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
       </mesh>
 
-      {/* Right side panel */}
-      <mesh position={[2.88, 2.45, 0]} receiveShadow>
-        <boxGeometry args={[0.07, 5.1, 1.35]} />
-        <meshStandardMaterial color="#4a2c10" roughness={0.85} />
+      {/* ── Middle Shelf Plank (Upper storage tier for games/books) ── */}
+      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
+        <boxGeometry args={[TOTAL_W - 0.04, THICK, DEPTH]} />
+        <primitive object={oakMaterial} attach="material" />
       </mesh>
 
-      {/* Floor shadow plane */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.11, 0]} receiveShadow>
-        <planeGeometry args={[6, 2]} />
-        <meshStandardMaterial color="#0a0a14" roughness={1} />
+      {/* Floor Shadow Plane */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -TOTAL_H / 2 - 0.01, 0]} receiveShadow>
+        <planeGeometry args={[TOTAL_W + 1.5, DEPTH + 1.5]} />
+        <meshStandardMaterial color="#0e0e16" roughness={1} />
       </mesh>
     </group>
   )

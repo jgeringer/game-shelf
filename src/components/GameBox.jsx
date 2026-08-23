@@ -451,18 +451,6 @@ function BoxMesh({
         </group>
       </group>
 
-      {/* ── Hover glow ── */}
-      {hovered && !isSelected && (
-        <mesh position={[0, 0, BD / 2 + 0.003]}>
-          <planeGeometry args={[BW + 0.08, BH + 0.08]} />
-          <meshBasicMaterial
-            color="#ffe080"
-            transparent
-            opacity={0.09}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
     </group>
   )
 }
@@ -491,12 +479,25 @@ export default function GameBox({
   const preOpenQuatRef = useRef(new THREE.Quaternion())
   const shouldRestoreRef = useRef(false)
   const shouldResetForShelfRef = useRef(false)
-  const shelfQuatRef = useRef(new THREE.Quaternion())
+  const shouldRotateToFrontRef = useRef(false)
+
+  // Shelf resting orientation: Spine faces forward (+90 deg around Y)
+  const shelfQuatRef = useRef(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0)))
+  // Front-facing orientation: Cover faces camera (identity rotation)
+  const frontQuatRef = useRef(new THREE.Quaternion(0, 0, 0, 1))
+
   const animState = useRef({
     pos:   new THREE.Vector3(...position),
     scale: 1,
   })
   const hovRef = useRef(false)
+
+  useEffect(() => {
+    // Start with spine-out rotation when on shelf
+    if (poseRef.current && !isSelected) {
+      poseRef.current.quaternion.copy(shelfQuatRef.current)
+    }
+  }, [isSelected])
 
   useEffect(() => {
     const wasOpen = prevOpenRef.current
@@ -512,8 +513,15 @@ export default function GameBox({
 
   useEffect(() => {
     const wasSelected = prevSelectedRef.current
+    if (!wasSelected && isSelected) {
+      // Just selected: rotate from spine to front
+      shouldRotateToFrontRef.current = true
+      shouldResetForShelfRef.current = false
+    }
     if (wasSelected && !isSelected) {
+      // Deselected: rotate back to shelf
       shouldResetForShelfRef.current = true
+      shouldRotateToFrontRef.current = false
       shouldRestoreRef.current = false
       setControlsKey(k => k + 1)
     }
@@ -525,20 +533,30 @@ export default function GameBox({
     const dt = Math.min(delta, 0.05)
     const a  = animState.current
 
-    // Fly-out / return position
+    // Fly-out / return position (slips forward on shelf hover!)
     const tx = isSelected ? 0    : position[0]
-    const ty = isSelected ? 0.3  : position[1]
-    const tz = isSelected ? 5.2  : position[2]
-    a.pos.x += (tx - a.pos.x) * dt * 5
-    a.pos.y += (ty - a.pos.y) * dt * 5
-    a.pos.z += (tz - a.pos.z) * dt * 5
+    const ty = isSelected ? 0.3  : (hovRef.current ? position[1] + 0.04 : position[1])
+    const tz = isSelected ? 5.2  : (hovRef.current ? position[2] + 0.36 : position[2])
+    a.pos.x += (tx - a.pos.x) * dt * 6
+    a.pos.y += (ty - a.pos.y) * dt * 6
+    a.pos.z += (tz - a.pos.z) * dt * 6
     outerRef.current.position.copy(a.pos)
 
     // Hover scale
-    const targetScale = (hovRef.current && !isSelected) ? 1.05 : 1.0
+    const targetScale = (hovRef.current && !isSelected) ? 1.04 : 1.0
     a.scale += (targetScale - a.scale) * dt * 9
     outerRef.current.scale.setScalar(a.scale)
 
+    // Rotate from spine-out to front-facing when selected
+    if (poseRef.current && shouldRotateToFrontRef.current) {
+      poseRef.current.quaternion.slerp(frontQuatRef.current, dt * 6)
+      if (poseRef.current.quaternion.angleTo(frontQuatRef.current) < 0.01) {
+        poseRef.current.quaternion.copy(frontQuatRef.current)
+        shouldRotateToFrontRef.current = false
+      }
+    }
+
+    // Restore rotation after closing box lid
     if (poseRef.current && shouldRestoreRef.current) {
       poseRef.current.quaternion.slerp(preOpenQuatRef.current, dt * 7)
       if (poseRef.current.quaternion.angleTo(preOpenQuatRef.current) < 0.01) {
@@ -547,6 +565,7 @@ export default function GameBox({
       }
     }
 
+    // Rotate back to spine-out when returning to shelf
     if (poseRef.current && shouldResetForShelfRef.current) {
       poseRef.current.quaternion.slerp(shelfQuatRef.current, dt * 8)
       if (poseRef.current.quaternion.angleTo(shelfQuatRef.current) < 0.01) {

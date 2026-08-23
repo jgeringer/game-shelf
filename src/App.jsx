@@ -34,7 +34,7 @@ export default function App() {
   return (
     <div className="app">
       <Canvas
-        camera={{ position: [0, 1.2, 9], fov: 44 }}
+        camera={{ position: [0, 0.4, 7.8], fov: 42 }}
         gl={{ antialias: true, alpha: false }}
         shadows
         onPointerMissed={handleDeselect}
