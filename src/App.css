@@ -1,0 +1,73 @@
+.app {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+.ui-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+.shelf-title {
+  color: #ffdd44;
+  font-size: 1.4rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px #ff8800, 0 0 40px #ff4400;
+  margin-bottom: auto;
+  user-select: none;
+}
+
+.game-controls {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 32px;
+}
+
+.btn {
+  padding: 10px 22px;
+  border: 2px solid #ffdd44;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffdd44;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background 0.15s, box-shadow 0.15s;
+  min-width: 160px;
+}
+.btn:hover {
+  background: rgba(255, 221, 68, 0.18);
+  box-shadow: 0 0 14px #ffdd4488;
+}
+.btn-secondary {
+  border-color: #aaa;
+  color: #ccc;
+}
+.btn-secondary:hover {
+  background: rgba(200, 200, 200, 0.1);
+  box-shadow: 0 0 10px #aaaaaa55;
+}
+
+.hint {
+  color: #888;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.no-shelf-hint {
+  margin-top: auto;
+  padding-bottom: 36px;
+}
