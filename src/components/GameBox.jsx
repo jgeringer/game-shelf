@@ -20,6 +20,7 @@ const CART_SCALE = 0.0094
 const CW = 118 * CART_SCALE
 const CH = 68 * CART_SCALE
 const CD = 15 * CART_SCALE
+const FALLBACK_TEXTURE_URL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 // ─────────────────────────────────────────────
 //  Cartridge mesh
@@ -112,6 +113,9 @@ function BoxMesh({
   isOpen,
   isSelected,
   onSelect,
+  onOpenBox,
+  onCloseBox,
+  onSpineHoverChange,
   coverUrl,
   cartUrl,
   manualUrl,
@@ -137,6 +141,7 @@ function BoxMesh({
   const [hovered, setHovered] = useState(false)
   const [cartHovered, setCartHovered] = useState(false)
   const [manualHovered, setManualHovered] = useState(false)
+  const hasManualPreview = Boolean(manualPreviewUrl && manualPreviewUrl.trim())
 
   // Load & split textures
   const coverTex = useTexture(coverUrl)
@@ -147,7 +152,7 @@ function BoxMesh({
     t.minFilter = THREE.LinearFilter
     t.magFilter = THREE.LinearFilter
   })
-  const manualTex = useTexture(manualPreviewUrl, (t) => {
+  const manualTex = useTexture(hasManualPreview ? manualPreviewUrl : FALLBACK_TEXTURE_URL, (t) => {
     t.colorSpace = THREE.SRGBColorSpace
     t.wrapS = THREE.ClampToEdgeWrapping
     t.wrapT = THREE.ClampToEdgeWrapping
@@ -233,6 +238,22 @@ function BoxMesh({
     ? (e) => { e.stopPropagation(); onSelect() }
     : undefined
 
+  const handleCoverClick = isSelected && !isOpen
+    ? (e) => {
+      // Ignore drag-release clicks from PresentationControls; open only on a true click.
+      if (typeof e.delta === 'number' && e.delta > 2) return
+      e.stopPropagation()
+      onOpenBox?.()
+    }
+    : undefined
+
+  const handleInsideClick = isSelected && isOpen
+    ? (e) => {
+      e.stopPropagation()
+      onCloseBox?.()
+    }
+    : undefined
+
   const darkEdge = <meshStandardMaterial color="#0c0c0c" roughness={0.75} />
   const interior = <meshStandardMaterial color="#1a1a1a" roughness={0.95} />
 
@@ -256,7 +277,19 @@ function BoxMesh({
       </mesh>
 
       {/* Spine (left outer edge) */}
-      <mesh position={[-BW / 2, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow>
+      <mesh
+        position={[-BW / 2, 0, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+        castShadow
+        onPointerEnter={(e) => {
+          e.stopPropagation()
+          onSpineHoverChange?.(true)
+        }}
+        onPointerLeave={(e) => {
+          e.stopPropagation()
+          onSpineHoverChange?.(false)
+        }}
+      >
         <planeGeometry args={[BD, BH]} />
         <meshStandardMaterial map={spineTex} />
       </mesh>
@@ -281,23 +314,23 @@ function BoxMesh({
 
       {/* ── Interior walls (visible when open) ── */}
 
-      <mesh position={[0, 0, -BD / 2 + 0.011]}>
+      <mesh position={[0, 0, -BD / 2 + 0.011]} onClick={handleInsideClick}>
         <planeGeometry args={[BW - 0.018, BH - 0.018]} />
         {interior}
       </mesh>
-      <mesh position={[-BW / 2 + 0.011, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[-BW / 2 + 0.011, 0, 0]} rotation={[0, Math.PI / 2, 0]} onClick={handleInsideClick}>
         <planeGeometry args={[BD - 0.018, BH - 0.018]} />
         {interior}
       </mesh>
-      <mesh position={[BW / 2 - 0.011, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+      <mesh position={[BW / 2 - 0.011, 0, 0]} rotation={[0, -Math.PI / 2, 0]} onClick={handleInsideClick}>
         <planeGeometry args={[BD - 0.018, BH - 0.018]} />
         {interior}
       </mesh>
-      <mesh position={[0, BH / 2 - 0.011, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, BH / 2 - 0.011, 0]} rotation={[Math.PI / 2, 0, 0]} onClick={handleInsideClick}>
         <planeGeometry args={[BW - 0.018, BD - 0.018]} />
         {interior}
       </mesh>
-      <mesh position={[0, -BH / 2 + 0.011, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -BH / 2 + 0.011, 0]} rotation={[-Math.PI / 2, 0, 0]} onClick={handleInsideClick}>
         <planeGeometry args={[BW - 0.018, BD - 0.018]} />
         {interior}
       </mesh>
@@ -387,17 +420,17 @@ function BoxMesh({
       <group position={[-BW / 2, 0, BD / 2]}>
         <group ref={lidRef}>
           {/* Face mesh: offset +BW/2 so its centre lines up with box front */}
-          <mesh position={[BW / 2, 0, 0]} castShadow>
+          <mesh position={[BW / 2, 0, 0]} castShadow onClick={handleCoverClick}>
             <planeGeometry args={[BW, BH]} />
             <meshStandardMaterial map={frontTex} side={THREE.DoubleSide} />
           </mesh>
           {/* Inside of cover (dark card interior) */}
-          <mesh position={[BW / 2, 0, -0.002]}>
+          <mesh position={[BW / 2, 0, -0.002]} onClick={handleInsideClick}>
             <planeGeometry args={[BW - 0.008, BH - 0.008]} />
             <meshStandardMaterial color="#0e0e0e" roughness={0.95} side={THREE.BackSide} />
           </mesh>
 
-          {isOpen && (
+          {isOpen && hasManualPreview && (
             <group
               position={[BW / 2 - 0.17, -0.01, 0.012]}
               rotation={[0, Math.PI, 0]}
@@ -465,6 +498,8 @@ export default function GameBox({
   isSelected,
   onSelect,
   isOpen,
+  onOpenBox,
+  onCloseBox,
   coverUrl,
   cartUrl,
   manualUrl,
@@ -579,8 +614,6 @@ export default function GameBox({
     <group
       ref={outerRef}
       position={position}
-      onPointerEnter={() => { hovRef.current = true }}
-      onPointerLeave={() => { hovRef.current = false }}
     >
       <PresentationControls
         key={controlsKey}
@@ -597,6 +630,9 @@ export default function GameBox({
             isOpen={isOpen}
             isSelected={isSelected}
             onSelect={onSelect}
+            onOpenBox={onOpenBox}
+            onCloseBox={onCloseBox}
+            onSpineHoverChange={(isHovered) => { hovRef.current = isHovered }}
             coverUrl={coverUrl}
             cartUrl={cartUrl}
             manualUrl={manualUrl}

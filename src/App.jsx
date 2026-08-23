@@ -8,6 +8,7 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
   const [isTvOn, setIsTvOn] = useState(false)
+  const [tvGameId, setTvGameId] = useState('aladdin')
 
   const handleSelect = useCallback((id) => {
     setSelectedGame(id)
@@ -23,11 +24,20 @@ export default function App() {
     setIsOpen(o => !o)
   }, [])
 
+  const handleOpenBox = useCallback(() => {
+    setIsOpen(true)
+  }, [])
+
+  const handleCloseBox = useCallback(() => {
+    setIsOpen(false)
+  }, [])
+
   const handleToggleTv = useCallback(() => {
     setIsTvOn(on => !on)
   }, [])
 
-  const handlePlayCartridge = useCallback(() => {
+  const handlePlayCartridge = useCallback((gameId) => {
+    if (gameId) setTvGameId(gameId)
     setIsTvOn(true)
   }, [])
 
@@ -42,8 +52,11 @@ export default function App() {
         <Suspense fallback={null}>
           <Scene
             selectedGame={selectedGame}
+            tvGameId={tvGameId}
             onSelect={handleSelect}
             isOpen={isOpen}
+            onOpenBox={handleOpenBox}
+            onCloseBox={handleCloseBox}
             isTvOn={isTvOn}
             onToggleTv={handleToggleTv}
             onPlayCartridge={handlePlayCartridge}

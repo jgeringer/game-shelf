@@ -9,11 +9,24 @@ const GAMES = [
     // Bottom-right bay, aligned to inner right wall:
     // Right wall inner edge world x ≈ 3.43 (TOTAL_W/2 - THICK - BD/2)
     // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
-    position: [3.35, -0.53, 0.0],
+    position: [2.98, -0.53, 0.0],
     coverUrl: '/textures/aladdin-cover.jpg',
     cartUrl: '/textures/aladdin-cart.png',
     manualUrl: '/manuals/Aladdin_MD_US_manual.pdf',
     manualPreviewUrl: '/manuals/aladdin-manual-page1.png',
+    screenTextureUrl: '/textures/aladdin-title.png',
+  },
+  {
+    id: 'thelionking',
+    // Bottom-right bay, aligned to inner right wall:
+    // Right wall inner edge world x ≈ 3.43 (TOTAL_W/2 - THICK - BD/2)
+    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
+    position: [3.31, -0.53, 0.0],
+    coverUrl: '/textures/thelionking-cover.jpg',
+    cartUrl: '/textures/thelionking-cart.png',
+    manualUrl: '/manuals/TheLionKing_US_manual.pdf',
+    manualPreviewUrl: '',
+    screenTextureUrl: '/textures/thelionking-title.png',
   }
 ]
 
@@ -112,12 +125,21 @@ function createPegHoleTexture() {
 
 export default function Scene({
   selectedGame,
+  tvGameId,
   onSelect,
   isOpen,
+  onOpenBox,
+  onCloseBox,
   isTvOn,
   onToggleTv,
   onPlayCartridge,
 }) {
+  const sortedGames = useMemo(
+    () => [...GAMES].sort((a, b) => a.id.localeCompare(b.id)),
+    []
+  )
+  const tvGame = GAMES.find((game) => game.id === tvGameId) ?? GAMES[0]
+
   return (
     <>
       {/* Background color */}
@@ -153,11 +175,11 @@ export default function Scene({
         rotation={[0.02, -0.22, 0]}
         isOn={isTvOn}
         onTogglePower={onToggleTv}
-        screenTextureUrl="/textures/aladdin-title.png"
+        screenTextureUrl={tvGame.screenTextureUrl}
       />
 
       {/* Game boxes (stored spine-out next to TV on lower shelf) */}
-      {GAMES.map(game => (
+      {sortedGames.map(game => (
         <GameBox
           key={game.id}
           gameId={game.id}
@@ -169,6 +191,8 @@ export default function Scene({
           isSelected={selectedGame === game.id}
           onSelect={() => onSelect(game.id)}
           isOpen={selectedGame === game.id && isOpen}
+          onOpenBox={onOpenBox}
+          onCloseBox={onCloseBox}
           onPlayCartridge={onPlayCartridge}
         />
       ))}
