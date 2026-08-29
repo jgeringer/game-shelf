@@ -1,14 +1,37 @@
-import { useState, useCallback } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { Suspense } from 'react'
+import { OrbitControls } from '@react-three/drei'
 import Scene from './components/Scene'
 import './App.css'
+
+function CameraFrameTrigger({ requestId, orbitRef, position, target }) {
+  const { camera } = useThree()
+
+  useEffect(() => {
+    if (!requestId) return
+
+    camera.position.set(position[0], position[1], position[2])
+    camera.lookAt(target[0], target[1], target[2])
+
+    if (orbitRef.current) {
+      orbitRef.current.target.set(target[0], target[1], target[2])
+      orbitRef.current.update()
+    }
+  }, [requestId, camera, orbitRef, position, target])
+
+  return null
+}
 
 export default function App() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
   const [isTvOn, setIsTvOn] = useState(false)
   const [tvGameId, setTvGameId] = useState('aladdin')
+  const [frameGenesisRequest, setFrameGenesisRequest] = useState(0)
+  const [resetShelfViewRequest, setResetShelfViewRequest] = useState(0)
+  const [renderGenesisAtOrigin, setRenderGenesisAtOrigin] = useState(false)
+  const orbitRef = useRef(null)
 
   const handleSelect = useCallback((id) => {
     setSelectedGame(id)
@@ -41,10 +64,22 @@ export default function App() {
     setIsTvOn(true)
   }, [])
 
+  const handleFrameGenesis = useCallback(() => {
+    setFrameGenesisRequest((n) => n + 1)
+  }, [])
+
+  const handleResetShelfView = useCallback(() => {
+    setResetShelfViewRequest((n) => n + 1)
+  }, [])
+
+  const handleToggleGenesisOrigin = useCallback(() => {
+    setRenderGenesisAtOrigin((v) => !v)
+  }, [])
+
   return (
     <div className="app">
       <Canvas
-        camera={{ position: [0, 0.4, 7.8], fov: 42 }}
+        camera={{ position: [0, 0.8, 15.5], fov: 62 }}
         gl={{ antialias: true, alpha: false }}
         shadows
         onPointerMissed={handleDeselect}
@@ -53,6 +88,7 @@ export default function App() {
           <Scene
             selectedGame={selectedGame}
             tvGameId={tvGameId}
+            renderGenesisAtOrigin={renderGenesisAtOrigin}
             onSelect={handleSelect}
             isOpen={isOpen}
             onOpenBox={handleOpenBox}
@@ -62,6 +98,33 @@ export default function App() {
             onPlayCartridge={handlePlayCartridge}
           />
         </Suspense>
+        <CameraFrameTrigger
+          requestId={frameGenesisRequest}
+          orbitRef={orbitRef}
+          position={[-1.9, 1.85, 2.2]}
+          target={[-1.84, 1.30, 0.08]}
+        />
+        <CameraFrameTrigger
+          requestId={resetShelfViewRequest}
+          orbitRef={orbitRef}
+          position={[0, 0.8, 15.5]}
+          target={[0, 0.35, 0]}
+        />
+        <OrbitControls
+          ref={orbitRef}
+          makeDefault
+          enablePan
+          enableZoom
+          enableRotate
+          target={[0, 0.35, 0]}
+          minDistance={4}
+          maxDistance={30}
+          minPolarAngle={0.15}
+          maxPolarAngle={Math.PI - 0.12}
+          zoomSpeed={0.9}
+          panSpeed={0.9}
+          rotateSpeed={0.8}
+        />
       </Canvas>
 
       <div className="ui-overlay">
@@ -74,6 +137,34 @@ export default function App() {
           >
             <span className="tv-dot"></span>
             SONY PVM-14M4E: {isTvOn ? 'ON' : 'OFF'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleFrameGenesis}
+            title="Move camera to Sega Genesis location"
+          >
+            Frame Genesis
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleResetShelfView}
+            title="Reset camera to the full shelf view"
+          >
+            Reset Shelf View
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleToggleGenesisOrigin}
+            title="Temporarily render the raw GLTF at world origin"
+          >
+            {renderGenesisAtOrigin ? 'Use Shelf Genesis' : 'Render Genesis At Origin'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => window.open('/genesis.html', '_blank', 'noopener,noreferrer')}
+            title="Open standalone Sega Genesis model page"
+          >
+            Open Genesis Viewer
           </button>
         </div>
 

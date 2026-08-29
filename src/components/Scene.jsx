@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import GameBox from './GameBox'
+import SegaGenesisModel from './SegaGenesisModel'
 import SonyPVM from './SonyPVM'
 
 const GAMES = [
@@ -126,6 +127,7 @@ function createPegHoleTexture() {
 export default function Scene({
   selectedGame,
   tvGameId,
+  renderGenesisAtOrigin,
   onSelect,
   isOpen,
   onOpenBox,
@@ -150,7 +152,7 @@ export default function Scene({
       <ambientLight intensity={0.70} color="#fffcf5" />
       <directionalLight
         position={[4, 8, 7]}
-        intensity={1.6}
+        intensity={7.6}
         color="#fffbf2"
         castShadow
         shadow-mapSize={[1024, 1024]}
@@ -171,11 +173,20 @@ export default function Scene({
 
       {/* 3D Sony PVM-14M4E Monitor (sitting on lower shelf in left bay, angled like in photo) */}
       <SonyPVM
-        position={[-1.75, -0.25, 0.0]}
+        position={[-1.75, -0.25, -0.55]}
         rotation={[0.02, -0.22, 0]}
         isOn={isTvOn}
         onTogglePower={onToggleTv}
         screenTextureUrl={tvGame.screenTextureUrl}
+      />
+
+      {/* Sega Genesis console (top-left shelf) */}
+      <SegaGenesisModel
+        raw={renderGenesisAtOrigin}
+        position={[-1.84, 1.35, -0.35]}
+        rotation={[0, 0, 0]}
+        scale={1.0}
+        modelScale={0.006}
       />
 
       {/* Game boxes (stored spine-out next to TV on lower shelf) */}
@@ -224,7 +235,7 @@ function ShelfUnit() {
 
   const TOTAL_W = 7.4   // Width of 2-bay bookcase
   const TOTAL_H = 5.2   // Height
-  const DEPTH = 1.6     // Depth
+  const DEPTH = 3.2     // Depth (doubled)
   const THICK = 0.12    // Panel thickness
 
   return (
