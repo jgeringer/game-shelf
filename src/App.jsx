@@ -43,10 +43,6 @@ export default function App() {
     setIsOpen(false)
   }, [])
 
-  const handleToggleOpen = useCallback(() => {
-    setIsOpen(o => !o)
-  }, [])
-
   const handleOpenBox = useCallback(() => {
     setIsOpen(true)
   }, [])
@@ -68,7 +64,7 @@ export default function App() {
   return (
     <div className="app">
       <Canvas
-        camera={{ position: [0, 0.8, 15.5], fov: 62 }}
+        camera={{ position: [0, 5.5, 15.5], fov: 42 }}
         gl={{ antialias: true, alpha: false }}
         shadows
         onPointerMissed={handleDeselect}
@@ -117,26 +113,6 @@ export default function App() {
       </Canvas>
 
       <div className="ui-overlay">
-        <div className="header-bar">
-          <h1 className="shelf-title">🎮 Retro Game Shelf</h1>
-        </div>
-
-        {selectedGame && (
-          <div className="game-controls">
-            <button className="btn" onClick={handleToggleOpen}>
-              {isOpen ? '📦 Close Box' : '📦 Open Box'}
-            </button>
-            <button className="btn btn-secondary" onClick={handleDeselect}>
-              ← Back to Shelf
-            </button>
-            {isOpen ? (
-              <p className="hint hint-active">✨ Click cartridge to play on TV</p>
-            ) : (
-              <p className="hint">Drag to rotate</p>
-            )}
-          </div>
-        )}
-
         {!selectedGame && (
           <p className="hint no-shelf-hint">
             Click a game to pick up • Click Sony PVM to toggle TV

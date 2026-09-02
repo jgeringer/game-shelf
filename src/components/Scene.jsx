@@ -174,17 +174,17 @@ export default function Scene({
 
       {/* 3D Sony PVM-14M4E Monitor (sitting on lower shelf in left bay, angled like in photo) */}
       <SonyPVM
-        position={[-1.75, -0.25, -0.55]}
-        rotation={[0.02, -0.22, 0]}
+        position={[-1.85, 4.8, -0.35]}
+        rotation={[0.02, 0.58, 0]}
         isOn={isTvOn}
         onTogglePower={onToggleTv}
         screenTextureUrl={tvGame.screenTextureUrl}
       />
 
-      {/* Sega Genesis console (top-left shelf) */}
+      {/* Sega Genesis console */}
       <SegaGenesisModel
         raw={renderGenesisAtOrigin}
-        position={[-1.84, 1.45, -0.1]}
+        position={[-1.84, 1.49, 0.2]}
         rotation={[0, 0, 0]}
         scale={1.0}
         modelScale={0.005}

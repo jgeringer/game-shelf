@@ -23,16 +23,6 @@
   pointer-events: all;
 }
 
-.shelf-title {
-  color: #ffdd44;
-  font-size: 1.4rem;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  text-shadow: 0 0 20px #ff8800, 0 0 40px #ff4400;
-  user-select: none;
-  margin: 0;
-}
-
 .tv-status-badge {
   display: inline-flex;
   align-items: center;
