@@ -64,17 +64,6 @@ export default function App() {
     setIsTvOn(true)
   }, [])
 
-  const handleFrameGenesis = useCallback(() => {
-    setFrameGenesisRequest((n) => n + 1)
-  }, [])
-
-  const handleResetShelfView = useCallback(() => {
-    setResetShelfViewRequest((n) => n + 1)
-  }, [])
-
-  const handleToggleGenesisOrigin = useCallback(() => {
-    setRenderGenesisAtOrigin((v) => !v)
-  }, [])
 
   return (
     <div className="app">
@@ -130,42 +119,6 @@ export default function App() {
       <div className="ui-overlay">
         <div className="header-bar">
           <h1 className="shelf-title">🎮 Retro Game Shelf</h1>
-          <button
-            className={`tv-status-badge ${isTvOn ? 'tv-on' : 'tv-off'}`}
-            onClick={handleToggleTv}
-            title="Click to toggle Sony PVM TV"
-          >
-            <span className="tv-dot"></span>
-            SONY PVM-14M4E: {isTvOn ? 'ON' : 'OFF'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={handleFrameGenesis}
-            title="Move camera to Sega Genesis location"
-          >
-            Frame Genesis
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={handleResetShelfView}
-            title="Reset camera to the full shelf view"
-          >
-            Reset Shelf View
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={handleToggleGenesisOrigin}
-            title="Temporarily render the raw GLTF at world origin"
-          >
-            {renderGenesisAtOrigin ? 'Use Shelf Genesis' : 'Render Genesis At Origin'}
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => window.open('/genesis.html', '_blank', 'noopener,noreferrer')}
-            title="Open standalone Sega Genesis model page"
-          >
-            Open Genesis Viewer
-          </button>
         </div>
 
         {selectedGame && (

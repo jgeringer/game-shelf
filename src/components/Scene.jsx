@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import GameBox from './GameBox'
+import NESModel from './NESModel'
 import SegaGenesisModel from './SegaGenesisModel'
 import SonyPVM from './SonyPVM'
 
@@ -152,7 +153,7 @@ export default function Scene({
       <ambientLight intensity={0.70} color="#fffcf5" />
       <directionalLight
         position={[4, 8, 7]}
-        intensity={7.6}
+        intensity={2.6}
         color="#fffbf2"
         castShadow
         shadow-mapSize={[1024, 1024]}
@@ -183,10 +184,18 @@ export default function Scene({
       {/* Sega Genesis console (top-left shelf) */}
       <SegaGenesisModel
         raw={renderGenesisAtOrigin}
-        position={[-1.84, 1.35, -0.35]}
+        position={[-1.84, 1.45, -0.1]}
         rotation={[0, 0, 0]}
         scale={1.0}
-        modelScale={0.006}
+        modelScale={0.005}
+      />
+
+      {/* NES console (top-right shelf) */}
+      <NESModel
+        position={[1.84, 1.23, .5]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        scale={1.0}
+        modelScale={0.015}
       />
 
       {/* Game boxes (stored spine-out next to TV on lower shelf) */}
