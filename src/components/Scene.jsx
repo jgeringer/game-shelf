@@ -5,6 +5,24 @@ import NESModel from './NESModel'
 import SegaGenesisModel from './SegaGenesisModel'
 import SonyPVM from './SonyPVM'
 
+const GAMES_NES = [
+  {
+    id: 'super-mario-bros-3',
+    // Bottom-left bay, aligned to inner left wall:
+    // Left wall inner edge world x ≈ -3.58 (-(TOTAL_W/2 - THICK)); box center x = -3.58 + BD/2
+    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
+    position: [-3.45, -0.53, 0.0],
+    coverFrontUrl: '/textures/systems/nes/covers/front/Super Mario Bros. 3[112].png',
+    coverBackUrl: '/textures/systems/nes/covers/back/Super Mario Bros. 3[112].png',
+    coverSpineUrl: '/textures/systems/nes/covers/spine/Super Mario Bros. 3[112].png',
+    // TODO: Add NES game cart, manual, and screen textures if needed
+    // cartUrl: '/textures/Super Mario Bros. 3[112]-cart.png',
+    // manualUrl: '/manuals/Super Mario Bros. 3[112]_US_manual.pdf',
+    // manualPreviewUrl: '/manuals/Super Mario Bros. 3[112]-manual-page1.png',
+    // screenTextureUrl: '/textures/Super Mario Bros. 3[112]-title.png',
+  },
+]
+
 const GAMES = [
   {
     id: 'aladdin',
@@ -141,6 +159,10 @@ export default function Scene({
     () => [...GAMES].sort((a, b) => a.id.localeCompare(b.id)),
     []
   )
+  const sortedNesGames = useMemo(
+    () => [...GAMES_NES].sort((a, b) => a.id.localeCompare(b.id)),
+    []
+  )
   const tvGame = GAMES.find((game) => game.id === tvGameId) ?? GAMES[0]
 
   return (
@@ -205,6 +227,28 @@ export default function Scene({
           gameId={game.id}
           position={game.position}
           coverUrl={game.coverUrl}
+          cartUrl={game.cartUrl}
+          manualUrl={game.manualUrl}
+          manualPreviewUrl={game.manualPreviewUrl}
+          isSelected={selectedGame === game.id}
+          onSelect={() => onSelect(game.id)}
+          isOpen={selectedGame === game.id && isOpen}
+          onOpenBox={onOpenBox}
+          onCloseBox={onCloseBox}
+          onPlayCartridge={onPlayCartridge}
+        />
+      ))}
+
+      {/* NES game boxes (stored spine-out on bottom-left shelf) */}
+      {sortedNesGames.map(game => (
+        <GameBox
+          key={game.id}
+          gameId={game.id}
+          system="nes"
+          position={game.position}
+          coverFrontUrl={game.coverFrontUrl}
+          coverBackUrl={game.coverBackUrl}
+          coverSpineUrl={game.coverSpineUrl}
           cartUrl={game.cartUrl}
           manualUrl={game.manualUrl}
           manualPreviewUrl={game.manualPreviewUrl}

@@ -3,10 +3,11 @@ import { useFrame } from '@react-three/fiber'
 import { useTexture, PresentationControls } from '@react-three/drei'
 import * as THREE from 'three'
 
-// ── Box dimensions (approx Sega Genesis case proportions) ──
-const BW = 1.38   // width
-const BH = 2.0    // height
-const BD = 0.30   // depth
+// ── Box dimensions per system (approx real-world case proportions) ──
+const BOX_DIMENSIONS = {
+  genesis: { width: 1.38, height: 2.0, depth: 0.30 },
+  nes:     { width: 1.32, height: 1.86, depth: 0.24 },
+}
 
 // ── UV splits for the 1231-wide cover image ──
 // Real Genesis box: back≈135mm, spine≈20mm, front≈135mm (290mm total)
@@ -110,6 +111,7 @@ function Cartridge({ tex, onClick, onPointerEnter, onPointerLeave }) {
 // ─────────────────────────────────────────────
 function BoxMesh({
   gameId,
+  system,
   isOpen,
   isSelected,
   onSelect,
@@ -117,16 +119,24 @@ function BoxMesh({
   onCloseBox,
   onSpineHoverChange,
   coverUrl,
+  coverFrontUrl,
+  coverBackUrl,
+  coverSpineUrl,
   cartUrl,
   manualUrl,
   manualPreviewUrl,
   onPlayCartridge,
 }) {
+  const { width: BW, height: BH, depth: BD } = BOX_DIMENSIONS[system] ?? BOX_DIMENSIONS.genesis
+  const isNes = system === 'nes'
+  const hasCart = Boolean(cartUrl)
   const lidRef  = useRef()
+  const flapRef = useRef()
   const cartRef = useRef()
   const manualRef = useRef()
   const animRef = useRef({
     lid: 0,
+    flap: 0,
     cartX: 0,
     cartY: -0.08,
     cartZ: 0,
@@ -144,8 +154,15 @@ function BoxMesh({
   const hasManualPreview = Boolean(manualPreviewUrl && manualPreviewUrl.trim())
 
   // Load & split textures
-  const coverTex = useTexture(coverUrl)
-  const cartTex = useTexture(cartUrl, (t) => {
+  const coverTex = useTexture(coverUrl || FALLBACK_TEXTURE_URL)
+  const [nesFrontTex, nesBackTex, nesSpineTex] = useTexture([
+    coverFrontUrl || FALLBACK_TEXTURE_URL,
+    coverBackUrl || FALLBACK_TEXTURE_URL,
+    coverSpineUrl || FALLBACK_TEXTURE_URL,
+  ], (textures) => {
+    textures.forEach((t) => { t.colorSpace = THREE.SRGBColorSpace })
+  })
+  const cartTex = useTexture(cartUrl || FALLBACK_TEXTURE_URL, (t) => {
     t.colorSpace = THREE.SRGBColorSpace
     t.wrapS = THREE.ClampToEdgeWrapping
     t.wrapT = THREE.ClampToEdgeWrapping
@@ -161,6 +178,10 @@ function BoxMesh({
   })
 
   const { frontTex, backTex, spineTex } = useMemo(() => {
+    // Separate per-face images (e.g. NES covers) are used as-is, no UV splitting needed.
+    if (coverFrontUrl) {
+      return { frontTex: nesFrontTex, backTex: nesBackTex, spineTex: nesSpineTex }
+    }
     const make = ({ ox, rx }) => {
       const t = coverTex.clone()
       t.needsUpdate = true
@@ -175,7 +196,28 @@ function BoxMesh({
       backTex:  make(UV_BACK),
       spineTex: make(UV_SPINE),
     }
-  }, [coverTex])
+  }, [coverTex, coverFrontUrl, nesFrontTex, nesBackTex, nesSpineTex])
+
+  // NES covers have no dedicated top/bottom art, so approximate it with the front cover's dominant color.
+  const nesDominantColor = useMemo(() => {
+    if (!isNes) return null
+    const img = nesFrontTex?.image
+    if (!img || !img.width) return '#d9a441'
+    const canvas = document.createElement('canvas')
+    canvas.width = 16
+    canvas.height = 16
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0, 16, 16)
+    const { data } = ctx.getImageData(0, 0, 16, 16)
+    let r = 0, g = 0, b = 0
+    const count = data.length / 4
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]
+      g += data[i + 1]
+      b += data[i + 2]
+    }
+    return `rgb(${Math.round(r / count)}, ${Math.round(g / count)}, ${Math.round(b / count)})`
+  }, [isNes, nesFrontTex])
 
   const handleManualClick = (e) => {
     e.stopPropagation()
@@ -186,11 +228,18 @@ function BoxMesh({
     const dt  = Math.min(delta, 0.05)
     const a   = animRef.current
 
-    // Lid swing (hinge on left edge of front face, negative Y = opens outward)
-    if (lidRef.current) {
+    // Genesis lid swings open on a hinge; NES box stays shut (its top flap animates separately).
+    if (lidRef.current && !isNes) {
       const targetLid = isOpen ? -Math.PI * 0.98 : 0
       a.lid += (targetLid - a.lid) * dt * 4.5
       lidRef.current.rotation.y = a.lid
+    }
+
+    // NES top flap hinges open at the back edge instead of the cover sliding out.
+    if (flapRef.current) {
+      const targetFlap = isOpen ? -Math.PI * 0.8 : 0
+      a.flap += (targetFlap - a.flap) * dt * 4.5
+      flapRef.current.rotation.x = a.flap
     }
 
     // Cartridge slide-out animation on hover when open
@@ -256,6 +305,10 @@ function BoxMesh({
 
   const darkEdge = <meshStandardMaterial color="#0c0c0c" roughness={0.75} />
   const interior = <meshStandardMaterial color="#1a1a1a" roughness={0.95} />
+  // NES boxes are fully wrapped in cover art on every side, not just front/back/spine.
+  const wrappedEdge = <meshStandardMaterial map={spineTex} roughness={0.85} />
+  const topBottomMaterial = <meshStandardMaterial color={nesDominantColor} roughness={0.85} />
+  const edgeMaterial = isNes ? wrappedEdge : darkEdge
 
   return (
     <group
@@ -297,19 +350,30 @@ function BoxMesh({
       {/* Right outer edge */}
       <mesh position={[BW / 2, 0, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
         <planeGeometry args={[BD, BH]} />
-        {darkEdge}
+        {edgeMaterial}
       </mesh>
 
-      {/* Top edge */}
-      <mesh position={[0, BH / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
-        <planeGeometry args={[BW, BD]} />
-        {darkEdge}
-      </mesh>
+      {/* Top edge: static panel for Genesis, hinged flap (opens at the back edge) for NES */}
+      {isNes ? (
+        <group position={[0, BH / 2, -BD / 2]}>
+          <group ref={flapRef}>
+            <mesh position={[0, 0, BD / 2]} rotation={[-Math.PI / 2, 0, 0]} castShadow onClick={handleCoverClick}>
+              <planeGeometry args={[BW, BD]} />
+              {topBottomMaterial}
+            </mesh>
+          </group>
+        </group>
+      ) : (
+        <mesh position={[0, BH / 2, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+          <planeGeometry args={[BW, BD]} />
+          {edgeMaterial}
+        </mesh>
+      )}
 
       {/* Bottom edge */}
       <mesh position={[0, -BH / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[BW, BD]} />
-        {darkEdge}
+        {isNes ? topBottomMaterial : edgeMaterial}
       </mesh>
 
       {/* ── Interior walls (visible when open) ── */}
@@ -336,29 +400,31 @@ function BoxMesh({
       </mesh>
 
       {/* ── Cartridge sitting inside ── */}
-      <group ref={cartRef} position={[0, -0.08, 0]}>
-        <Cartridge
-          tex={cartTex}
-          isHovered={cartHovered}
-          onClick={isOpen ? (e) => {
-            e.stopPropagation()
-            onPlayCartridge?.(gameId || 'aladdin')
-          } : undefined}
-          onPointerEnter={isOpen ? (e) => {
-            e.stopPropagation()
-            setCartHovered(true)
-            document.body.style.cursor = 'pointer'
-          } : undefined}
-          onPointerLeave={isOpen ? (e) => {
-            e.stopPropagation()
-            setCartHovered(false)
-            document.body.style.cursor = hovered ? 'pointer' : 'auto'
-          } : undefined}
-        />
-      </group>
+      {hasCart && (
+        <group ref={cartRef} position={[0, -0.08, 0]}>
+          <Cartridge
+            tex={cartTex}
+            isHovered={cartHovered}
+            onClick={isOpen ? (e) => {
+              e.stopPropagation()
+              onPlayCartridge?.(gameId || 'aladdin')
+            } : undefined}
+            onPointerEnter={isOpen ? (e) => {
+              e.stopPropagation()
+              setCartHovered(true)
+              document.body.style.cursor = 'pointer'
+            } : undefined}
+            onPointerLeave={isOpen ? (e) => {
+              e.stopPropagation()
+              setCartHovered(false)
+              document.body.style.cursor = hovered ? 'pointer' : 'auto'
+            } : undefined}
+          />
+        </group>
+      )}
 
       {/* Cartridge retaining clips (right panel) */}
-      {isOpen && (
+      {isOpen && hasCart && (
         <>
           <mesh position={[0.04, 0.52, 0.073]}>
             <boxGeometry args={[0.05, 0.075, 0.026]} />
@@ -389,33 +455,35 @@ function BoxMesh({
         </>
       )}
 
-      {/* Display hang tab (always visible) */}
-      <group position={[0, BH / 2 + 0.11, -0.02]}>
-        <mesh>
-          <boxGeometry args={[0.28, 0.16, 0.03]} />
-          <meshStandardMaterial color="#4a4133" roughness={0.86} metalness={0.02} />
-        </mesh>
-        {/* Neck where the tab joins the case */}
-        <mesh position={[0, -0.09, 0]}>
-          <boxGeometry args={[0.10, 0.03, 0.03]} />
-          <meshStandardMaterial color="#222222" roughness={0.85} />
-        </mesh>
-        {/* Slot cutout (simulated with dark insets) */}
-        <mesh position={[0, 0.005, 0.016]}>
-          <boxGeometry args={[0.11, 0.035, 0.003]} />
-          <meshBasicMaterial color="#111111" />
-        </mesh>
-        <mesh position={[-0.06, 0.005, 0.016]}>
-          <circleGeometry args={[0.018, 20]} />
-          <meshBasicMaterial color="#111111" />
-        </mesh>
-        <mesh position={[0.06, 0.005, 0.016]}>
-          <circleGeometry args={[0.018, 20]} />
-          <meshBasicMaterial color="#111111" />
-        </mesh>
-      </group>
+      {/* Display hang tab (Genesis-style boxes only; NES boxes have no hanger) */}
+      {!isNes && (
+        <group position={[0, BH / 2 + 0.11, -0.02]}>
+          <mesh>
+            <boxGeometry args={[0.28, 0.16, 0.03]} />
+            <meshStandardMaterial color="#4a4133" roughness={0.86} metalness={0.02} />
+          </mesh>
+          {/* Neck where the tab joins the case */}
+          <mesh position={[0, -0.09, 0]}>
+            <boxGeometry args={[0.10, 0.03, 0.03]} />
+            <meshStandardMaterial color="#222222" roughness={0.85} />
+          </mesh>
+          {/* Slot cutout (simulated with dark insets) */}
+          <mesh position={[0, 0.005, 0.016]}>
+            <boxGeometry args={[0.11, 0.035, 0.003]} />
+            <meshBasicMaterial color="#111111" />
+          </mesh>
+          <mesh position={[-0.06, 0.005, 0.016]}>
+            <circleGeometry args={[0.018, 20]} />
+            <meshBasicMaterial color="#111111" />
+          </mesh>
+          <mesh position={[0.06, 0.005, 0.016]}>
+            <circleGeometry args={[0.018, 20]} />
+            <meshBasicMaterial color="#111111" />
+          </mesh>
+        </group>
+      )}
 
-      {/* ── Front face (animated hinge lid) ── */}
+      {/* ── Front face (animated hinge lid for Genesis, slide-up sleeve for NES) ── */}
       {/*   Pivot point: left edge of the front face at (-BW/2, 0, BD/2)  */}
       <group position={[-BW / 2, 0, BD / 2]}>
         <group ref={lidRef}>
@@ -494,6 +562,7 @@ function BoxMesh({
 // ─────────────────────────────────────────────
 export default function GameBox({
   gameId,
+  system = 'genesis',
   position,
   isSelected,
   onSelect,
@@ -501,6 +570,9 @@ export default function GameBox({
   onOpenBox,
   onCloseBox,
   coverUrl,
+  coverFrontUrl,
+  coverBackUrl,
+  coverSpineUrl,
   cartUrl,
   manualUrl,
   manualPreviewUrl,
@@ -627,6 +699,7 @@ export default function GameBox({
         <group ref={poseRef}>
           <BoxMesh
             gameId={gameId}
+            system={system}
             isOpen={isOpen}
             isSelected={isSelected}
             onSelect={onSelect}
@@ -634,6 +707,9 @@ export default function GameBox({
             onCloseBox={onCloseBox}
             onSpineHoverChange={(isHovered) => { hovRef.current = isHovered }}
             coverUrl={coverUrl}
+            coverFrontUrl={coverFrontUrl}
+            coverBackUrl={coverBackUrl}
+            coverSpineUrl={coverSpineUrl}
             cartUrl={cartUrl}
             manualUrl={manualUrl}
             manualPreviewUrl={manualPreviewUrl}
