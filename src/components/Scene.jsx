@@ -9,9 +9,8 @@ const GAMES_NES = [
   {
     id: 'super-mario-bros-3',
     // Bottom-left bay, aligned to inner left wall:
-    // Left wall inner edge world x ≈ -3.58 (-(TOTAL_W/2 - THICK)); box center x = -3.58 + BD/2
-    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
-    position: [-3.45, -0.53, 0.0],
+    // Left bay center is world x ≈ -3.60; bottom shelf surface is world y ≈ -1.59.
+    position: [-3.60, -0.53, 0.0],
     coverFrontUrl: '/textures/systems/nes/covers/front/Super Mario Bros. 3[112].png',
     coverBackUrl: '/textures/systems/nes/covers/back/Super Mario Bros. 3[112].png',
     coverSpineUrl: '/textures/systems/nes/covers/spine/Super Mario Bros. 3[112].png',
@@ -27,8 +26,7 @@ const GAMES = [
   {
     id: 'aladdin',
     // Bottom-right bay, aligned to inner right wall:
-    // Right wall inner edge world x ≈ 3.43 (TOTAL_W/2 - THICK - BD/2)
-    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
+    // Right bay center is world x ≈ 3.60; bottom shelf surface is world y ≈ -1.59.
     position: [2.98, -0.53, 0.0],
     coverUrl: '/textures/aladdin-cover.jpg',
     cartUrl: '/textures/aladdin-cart.png',
@@ -39,8 +37,7 @@ const GAMES = [
   {
     id: 'thelionking',
     // Bottom-right bay, aligned to inner right wall:
-    // Right wall inner edge world x ≈ 3.43 (TOTAL_W/2 - THICK - BD/2)
-    // Bottom shelf surface world y ≈ -1.53; box center y = -1.53 + 1.0 = -0.53
+    // Right bay center is world x ≈ 3.60; bottom shelf surface is world y ≈ -1.59.
     position: [3.31, -0.53, 0.0],
     coverUrl: '/textures/thelionking-cover.jpg',
     cartUrl: '/textures/thelionking-cart.png',
@@ -154,6 +151,8 @@ export default function Scene({
   isTvOn,
   onToggleTv,
   onPlayCartridge,
+  onShelfFocus,
+  onGameFocus,
 }) {
   const sortedGames = useMemo(
     () => [...GAMES].sort((a, b) => a.id.localeCompare(b.id)),
@@ -181,9 +180,9 @@ export default function Scene({
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={20}
-        shadow-camera-left={-6}
-        shadow-camera-right={6}
-        shadow-camera-top={6}
+        shadow-camera-left={-26}
+        shadow-camera-right={8}
+        shadow-camera-top={12}
         shadow-camera-bottom={-6}
       />
       {/* Subtle fill from the left */}
@@ -191,12 +190,15 @@ export default function Scene({
       {/* Warm accent from below */}
       <pointLight position={[0, -2, 4]} intensity={0.25} color="#fff0d0" />
 
-      {/* 2-Bay Blonde Oak Bookcase Unit */}
-      <ShelfUnit />
+      {/* Existing 12-cube shelf */}
+      <ShelfUnit onFocus={onShelfFocus} />
+
+      {/* Empty 10-cube shelf for the hardware */}
+      <ShelfUnit columns={5} rows={2} position={[-15.30, 0.99, -0.15]} onFocus={onShelfFocus} />
 
       {/* 3D Sony PVM-14M4E Monitor (sitting on lower shelf in left bay, angled like in photo) */}
       <SonyPVM
-        position={[-1.85, 4.8, -0.35]}
+        position={[-15.30, 4.8, -0.35]}
         rotation={[0.02, 0.58, 0]}
         isOn={isTvOn}
         onTogglePower={onToggleTv}
@@ -206,15 +208,15 @@ export default function Scene({
       {/* Sega Genesis console */}
       <SegaGenesisModel
         raw={renderGenesisAtOrigin}
-        position={[-1.84, 1.49, 0.2]}
+        position={[-11.60, 1.49, 0.2]}
         rotation={[0, 0, 0]}
         scale={1.0}
         modelScale={0.005}
       />
 
-      {/* NES console (top-right shelf) */}
+      {/* NES console (upper row of the empty shelf) */}
       <NESModel
-        position={[1.84, 1.23, .5]}
+        position={[-19.00, 1.23, .5]}
         rotation={[-Math.PI / 2, 0, 0]}
         scale={1.0}
         modelScale={0.015}
@@ -231,7 +233,10 @@ export default function Scene({
           manualUrl={game.manualUrl}
           manualPreviewUrl={game.manualPreviewUrl}
           isSelected={selectedGame === game.id}
-          onSelect={() => onSelect(game.id)}
+          onSelect={() => {
+            onSelect(game.id)
+            onGameFocus?.([0, 0.3, 5.2], { width: 1.38, height: 2.0 })
+          }}
           isOpen={selectedGame === game.id && isOpen}
           onOpenBox={onOpenBox}
           onCloseBox={onCloseBox}
@@ -253,7 +258,10 @@ export default function Scene({
           manualUrl={game.manualUrl}
           manualPreviewUrl={game.manualPreviewUrl}
           isSelected={selectedGame === game.id}
-          onSelect={() => onSelect(game.id)}
+          onSelect={() => {
+            onSelect(game.id)
+            onGameFocus?.([0, 0.3, 5.2], { width: 1.32, height: 1.86 })
+          }}
           isOpen={selectedGame === game.id && isOpen}
           onOpenBox={onOpenBox}
           onCloseBox={onCloseBox}
@@ -268,7 +276,7 @@ export default function Scene({
 // Scandinavian Light Oak 2-Bay Bookcase
 // ─────────────────────────────────────────────────────────
 
-function ShelfUnit() {
+function ShelfUnit({ columns = 3, rows = 4, position = [0, 3.51, -0.15], onFocus }) {
   const oakTex = useMemo(() => createLightOakTexture(), [])
   const pegTex = useMemo(() => createPegHoleTexture(), [])
 
@@ -286,18 +294,60 @@ function ShelfUnit() {
     metalness: 0.02,
   }), [pegTex])
 
-  const TOTAL_W = 7.4   // Width of 2-bay bookcase
-  const TOTAL_H = 5.2   // Height
   const DEPTH = 3.2     // Depth (doubled)
   const THICK = 0.12    // Panel thickness
+  const BAY_W = 3.52     // Existing clear bay width
+  const CELL_H = 2.40    // Existing clear bay height
+  const TOTAL_W = BAY_W * columns + THICK * (columns + 1)
+  const TOTAL_H = CELL_H * rows + THICK * (rows + 1)
+  const shelfLevels = Array.from({ length: rows + 1 }, (_, index) => (
+    -TOTAL_H / 2 + THICK / 2 + index * (CELL_H + THICK)
+  ))
 
   return (
-    <group position={[0, 0.95, -0.15]}>
+    <group
+      position={position}
+      onClick={(event) => {
+        event.stopPropagation()
+        onFocus?.(position, { width: TOTAL_W, height: TOTAL_H })
+      }}
+    >
       {/* ── Back Panel (Light blonde oak backing) ── */}
       <mesh position={[0, 0, -DEPTH / 2 + 0.04]} receiveShadow>
         <boxGeometry args={[TOTAL_W, TOTAL_H, 0.06]} />
         <primitive object={oakMaterial} attach="material" />
       </mesh>
+
+      {/* Individual cubby targets sit behind the objects stored inside them. */}
+      {Array.from({ length: rows }, (_, row) => (
+        Array.from({ length: columns }, (_, column) => {
+          const x = -TOTAL_W / 2 + THICK + BAY_W / 2 + column * (BAY_W + THICK)
+          const y = (shelfLevels[row] + shelfLevels[row + 1]) / 2
+          const focusPosition = [position[0] + x, position[1] + y, position[2]]
+
+          return (
+            <mesh
+              key={`${row}-${column}`}
+              position={[x, y, -DEPTH / 2 + 0.075]}
+              onClick={(event) => {
+                event.stopPropagation()
+                onFocus?.(
+                  focusPosition,
+                  { width: BAY_W, height: CELL_H },
+                  {
+                    position: [...position],
+                    width: TOTAL_W,
+                    height: TOTAL_H,
+                  }
+                )
+              }}
+            >
+              <planeGeometry args={[BAY_W, CELL_H]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+            </mesh>
+          )
+        })
+      ))}
 
       {/* ── Outer Left Upright Wall ── */}
       <mesh position={[-TOTAL_W / 2 + THICK / 2, 0, 0]} castShadow receiveShadow>
@@ -327,52 +377,34 @@ function ShelfUnit() {
         <primitive object={pegWallMaterial} attach="material" />
       </mesh>
 
-      {/* ── Central Vertical Divider (separates Left & Right bays) ── */}
-      <mesh position={[0, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[THICK, TOTAL_H, DEPTH]} />
-        <primitive object={oakMaterial} attach="material" />
-      </mesh>
-      {/* Center Divider Left Peg-holes */}
-      <mesh
-        position={[-THICK / 2 - 0.001, 0, 0]}
-        rotation={[0, -Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
-        <primitive object={pegWallMaterial} attach="material" />
-      </mesh>
-      {/* Center Divider Right Peg-holes */}
-      <mesh
-        position={[THICK / 2 + 0.001, 0, 0]}
-        rotation={[0, Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
-        <primitive object={pegWallMaterial} attach="material" />
-      </mesh>
+      {/* ── Vertical Dividers (separate the bays) ── */}
+      {Array.from({ length: columns - 1 }, (_, index) => index).map((index) => {
+        const x = -TOTAL_W / 2 + THICK + BAY_W * (index + 1) + THICK * index + THICK / 2
+        const divider = index % 2 === 0 ? 1 : -1
+        return (
+          <group key={index} position={[x, 0, 0]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[THICK, TOTAL_H, DEPTH]} />
+              <primitive object={oakMaterial} attach="material" />
+            </mesh>
+            <mesh
+              position={[-divider * (THICK / 2 + 0.001), 0, 0]}
+              rotation={[0, divider * Math.PI / 2, 0]}
+            >
+              <planeGeometry args={[DEPTH - 0.1, TOTAL_H - 0.2]} />
+              <primitive object={pegWallMaterial} attach="material" />
+            </mesh>
+          </group>
+        )
+      })}
 
-      {/* ── Top Crown Shelf Plank ── */}
-      <mesh position={[0, TOTAL_H / 2 - THICK / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[TOTAL_W, THICK, DEPTH]} />
-        <primitive object={oakMaterial} attach="material" />
-      </mesh>
-
-      {/* ── Bottom Base Shelf Plank (Floor Level) ── */}
-      <mesh position={[0, -TOTAL_H / 2 + THICK / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[TOTAL_W, THICK, DEPTH]} />
-        <primitive object={oakMaterial} attach="material" />
-      </mesh>
-
-      {/* ── Lower Main Shelf (supports TV and Genesis Games) ── */}
-      {/* Y = -2.60 + 0.12 = -2.48 relative to unit center (world Y ≈ -1.53) */}
-      <mesh position={[0, -TOTAL_H / 2 + 0.06, 0]} castShadow receiveShadow>
-        <boxGeometry args={[TOTAL_W - 0.04, THICK, DEPTH]} />
-        <primitive object={oakMaterial} attach="material" />
-      </mesh>
-
-      {/* ── Middle Shelf Plank (Upper storage tier for games/books) ── */}
-      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
-        <boxGeometry args={[TOTAL_W - 0.04, THICK, DEPTH]} />
-        <primitive object={oakMaterial} attach="material" />
-      </mesh>
+      {/* ── Shelf Planks (four rows of equal-sized cubbies) ── */}
+      {shelfLevels.map((y, index) => (
+        <mesh key={index} position={[0, y, 0]} castShadow receiveShadow>
+          <boxGeometry args={[TOTAL_W - 0.04, THICK, DEPTH]} />
+          <primitive object={oakMaterial} attach="material" />
+        </mesh>
+      ))}
 
       {/* Floor Shadow Plane */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -TOTAL_H / 2 - 0.01, 0]} receiveShadow>

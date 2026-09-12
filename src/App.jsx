@@ -1,9 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { OrbitControls } from '@react-three/drei'
+import * as THREE from 'three'
 import Scene from './components/Scene'
 import './App.css'
+
+const MAIN_SHELF_FOCUS = {
+  position: [0, 3.51, -0.15],
+  width: 11.04,
+  height: 10.2,
+}
 
 function CameraFrameTrigger({ requestId, orbitRef, position, target }) {
   const { camera } = useThree()
@@ -23,6 +30,83 @@ function CameraFrameTrigger({ requestId, orbitRef, position, target }) {
   return null
 }
 
+function KeyboardSceneNavigation({ orbitRef }) {
+  const { camera } = useThree()
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const directions = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, 1],
+        ArrowDown: [0, -1],
+      }
+      const direction = directions[event.key]
+      if (!direction || !orbitRef.current) return
+
+      event.preventDefault()
+      const distance = 1.25
+      const offsetX = direction[0] * distance
+      const offsetY = direction[1] * distance
+
+      camera.position.x += offsetX
+      camera.position.y += offsetY
+      orbitRef.current.target.x += offsetX
+      orbitRef.current.target.y += offsetY
+      orbitRef.current.update()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [camera, orbitRef])
+
+  return null
+}
+
+function SmoothShelfFocus({ focusRequest, orbitRef }) {
+  const { camera } = useThree()
+  const animationRef = useRef(null)
+
+  useEffect(() => {
+    if (!focusRequest || !orbitRef.current) return
+
+    const target = new THREE.Vector3(...focusRequest.position)
+    const currentTarget = orbitRef.current.target.clone()
+    const cameraDirection = camera.position.clone().sub(currentTarget).normalize()
+    const halfVerticalFov = THREE.MathUtils.degToRad(camera.fov / 2)
+    const verticalDistance = (focusRequest.height / 2) / Math.tan(halfVerticalFov)
+    const horizontalDistance = (focusRequest.width / 2) / (Math.tan(halfVerticalFov) * camera.aspect)
+    const fitDistance = Math.max(verticalDistance, horizontalDistance) * 1.15
+
+    animationRef.current = {
+      target,
+      cameraPosition: target.clone().add(cameraDirection.multiplyScalar(fitDistance)),
+    }
+  }, [camera, focusRequest, orbitRef])
+
+  useFrame((_, delta) => {
+    const animation = animationRef.current
+    if (!animation || !orbitRef.current) return
+
+    const easing = 1 - Math.exp(-delta * 5)
+    camera.position.lerp(animation.cameraPosition, easing)
+    orbitRef.current.target.lerp(animation.target, easing)
+    orbitRef.current.update()
+
+    if (
+      camera.position.distanceTo(animation.cameraPosition) < 0.01
+      && orbitRef.current.target.distanceTo(animation.target) < 0.01
+    ) {
+      camera.position.copy(animation.cameraPosition)
+      orbitRef.current.target.copy(animation.target)
+      orbitRef.current.update()
+      animationRef.current = null
+    }
+  })
+
+  return null
+}
+
 export default function App() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -31,6 +115,7 @@ export default function App() {
   const [frameGenesisRequest, setFrameGenesisRequest] = useState(0)
   const [resetShelfViewRequest, setResetShelfViewRequest] = useState(0)
   const [renderGenesisAtOrigin, setRenderGenesisAtOrigin] = useState(false)
+  const [shelfFocus, setShelfFocus] = useState(null)
   const orbitRef = useRef(null)
 
   const handleSelect = useCallback((id) => {
@@ -41,7 +126,8 @@ export default function App() {
   const handleDeselect = useCallback(() => {
     setSelectedGame(null)
     setIsOpen(false)
-  }, [])
+    if (selectedGame) setShelfFocus({ ...MAIN_SHELF_FOCUS })
+  }, [selectedGame])
 
   const handleOpenBox = useCallback(() => {
     setIsOpen(true)
@@ -60,11 +146,25 @@ export default function App() {
     setIsTvOn(true)
   }, [])
 
+  const handleShelfFocus = useCallback((position, dimensions, parentFocus) => {
+    setSelectedGame(null)
+    setIsOpen(false)
+    setShelfFocus((currentFocus) => {
+      const isSameFocus = currentFocus?.position?.every((value, index) => value === position[index])
+      if (isSameFocus && parentFocus) return { ...parentFocus }
+      return { position: [...position], ...dimensions }
+    })
+  }, [])
+
+  const handleGameFocus = useCallback((position, dimensions) => {
+    setShelfFocus({ position: [...position], ...dimensions })
+  }, [])
+
 
   return (
     <div className="app">
       <Canvas
-        camera={{ position: [0, 5.5, 15.5], fov: 42 }}
+        camera={{ position: [-9.5, 3.8, 27], fov: 42 }}
         gl={{ antialias: true, alpha: false }}
         shadows
         onPointerMissed={handleDeselect}
@@ -81,8 +181,12 @@ export default function App() {
             isTvOn={isTvOn}
             onToggleTv={handleToggleTv}
             onPlayCartridge={handlePlayCartridge}
+            onShelfFocus={handleShelfFocus}
+            onGameFocus={handleGameFocus}
           />
         </Suspense>
+        <KeyboardSceneNavigation orbitRef={orbitRef} />
+        <SmoothShelfFocus focusRequest={shelfFocus} orbitRef={orbitRef} />
         <CameraFrameTrigger
           requestId={frameGenesisRequest}
           orbitRef={orbitRef}
@@ -92,8 +196,8 @@ export default function App() {
         <CameraFrameTrigger
           requestId={resetShelfViewRequest}
           orbitRef={orbitRef}
-          position={[0, 0.8, 15.5]}
-          target={[0, 0.35, 0]}
+          position={[-9.5, 3.8, 27]}
+          target={[-9.5, 3.0, 0]}
         />
         <OrbitControls
           ref={orbitRef}
@@ -101,7 +205,7 @@ export default function App() {
           enablePan
           enableZoom
           enableRotate
-          target={[0, 0.35, 0]}
+          target={[-9.5, 3.0, 0]}
           minDistance={4}
           maxDistance={30}
           minPolarAngle={0.15}
